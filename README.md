@@ -188,6 +188,52 @@ python configure_accounts.py     # provider, potem nazwa: gmail → gmail_praca
 Konta widoczne w `--status` i przy starcie skanera. Usunięcie:
 `python configure_accounts.py --usun gmail_praca`
 
+## Stan zagrożeń ze świata (opcjonalne)
+
+Feed pobierany do lokalnej bazy, potem działa offline. Nie wymaga konta,
+klucza API ani rejestracji.
+
+```bash
+.venv/bin/python threat_intel.py update     # pobierz (jedyny moment z siecią)
+.venv/bin/python threat_intel.py status     # co mam lokalnie
+.venv/bin/python threat_intel.py diff       # co doszło od ostatniego razu
+.venv/bin/python threat_intel.py top 20     # najczęściej widziane zagrożenia
+.venv/bin/python threat_intel.py selfcheck  # sprawdź bazę i parsery, bez sieci
+.venv/bin/python threat_intel.py export blacklist > feed.txt
+```
+
+### Źródła (sprawdzone odpowiedzią, nie zgadnięte)
+
+| Źródło | Co | Aktualizowane |
+|---|---|---|
+| **CISA KEV** | 1739 CVE z potwierdzonym wykorzystaniem przez atakujących, w tym 361 użytych w znanym oprogramowaniu szyfrującym | co tydzień, JSON |
+| **OpenPhish** | ~260 aktywnych domen phishingowych | co kilka godzin |
+| **Phishing Army** | ~139 700 domen z kitów phishingowych | ciągle |
+
+`abuse.ch` (URLhaus, ThreatFox) odmawia `401` bez darmowego klucza, więc
+go tu nie ma. `core/url_reputation.py` nadal z niego korzysta, jeśli klucz
+posiadasz. Feedy wymagające konta wygasają, bo nikt ich nie odświeża.
+
+### Co mówią te liczby
+
+```
+141 695  pozycji w bazie
+141 548  unikalnych wartości
+    147  domen widzianych w dwóch feedach naraz
+```
+
+**147 wspólnych domen to nie jest szum.** Nieliczni operatorzy phishingu
+puszczają jedną domenę w wielu kitach. Dlatego `status` i `top` liczą
+**unikalne** wartości — gdyby sumowały, jeden phishing obecny w dwóch
+feedach wyglądałby jak dwa różne zagrożenia, a liczba baży się rozjeżdża.
+
+`diff` porównuje dwa ostatnie pobrania, więc po tygodniu zobaczysz dokładnie
+co przyszło: nowe domeny, nowe CVE, daty `dueDate` z CISA.
+
+Czego to **nie robi**: nie łączy się z siecią bez Twojego `update`, nie
+wysyła nic do LLM, nie wykonuje kodu z feedu, nie blokuje niczego sam —
+daje Ci listę, decyzja jest Twoja.
+
 ## Serwer MCP (opcjonalny, wyłączony domyślnie)
 
 **Nie uruchamia się sam i nie jest częścią żadnego innego pliku w projekcie.**
