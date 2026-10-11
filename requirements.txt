@@ -1,0 +1,22 @@
+# MailHunterPro - Zależności
+# Core
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+lxml>=4.9.0
+cryptography>=41.0.0
+
+# Database
+# sqlite3 jest wbudowane w Pythona
+
+# GUI
+# tkinter jest wbudowane w Pythona
+
+# Web UI (web/server.py, start_web.sh)
+flask>=3.0.0
+
+# Tor (opcjonalne)
+PySocks>=1.7.1
+
+# Dev/Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0

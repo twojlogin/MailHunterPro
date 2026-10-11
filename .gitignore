@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.Python
+.venv/
+venv/
+ENV/
+
+# Environment
+.env
+*.env
+
+# Encryption keys (NIGDY nie wrzucaj na publiczne repo!)
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Data (generowane)
+data/*.db
+data/*.json
+data/quarantine/
+data/export/
+
+# Config (lokalne ścieżki)
+config.json
+czadmate_config.json
+*.ini
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
