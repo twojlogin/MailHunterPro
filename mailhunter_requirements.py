@@ -138,7 +138,7 @@ python setup_env.py
 ## Uruchomienie
 
 ```bash
-python mailhunter.py
+python mailhunter_cli.py
 ```
 
 ## Konfiguracja kont e-mail
@@ -286,7 +286,7 @@ def main():
     print("=" * 60)
     print("\nKolejne kroki:")
     print("1. Skonfiguruj konta e-mail w aplikacji")
-    print("2. Uruchom: python mailhunter.py")
+    print("2. Uruchom: python mailhunter_cli.py")
     print("3. Rozpocznij skanowanie!")
     print("\n")
 
@@ -391,7 +391,7 @@ def main():
     else:
         print("⚠ Nie skonfigurowano żadnego konta")
     print("=" * 60)
-    print("\nMożesz teraz uruchomić MailHunter: python mailhunter.py")
+    print("\nMożesz teraz uruchomić MailHunter: python mailhunter_cli.py")
 
 if __name__ == "__main__":
     main()
@@ -488,14 +488,14 @@ Write-Host "  ✓ Środowisko gotowe do analizy" -ForegroundColor Green
 Write-Host "`n" + ("=" * 60)
 Write-Host "Sandbox gotowy!" -ForegroundColor Green
 Write-Host "=" * 60
-Write-Host "`nUruchom MailHunter: python mailhunter.py`n"
+Write-Host "`nUruchom MailHunter: python mailhunter_cli.py`n"
 
 # Opcjonalnie otwórz GUI
 $autoStart = $env:MAILHUNTER_AUTOSTART
 if ($autoStart -eq "1") {
     Write-Host "Auto-start włączony, uruchamiam MailHunter..." -ForegroundColor Cyan
     Start-Sleep -Seconds 2
-    python mailhunter.py
+    python mailhunter_cli.py
 }
 
 # =====================================

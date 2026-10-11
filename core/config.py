@@ -7,12 +7,33 @@ from cryptography.fernet import Fernet
 # To zapewnia, że ścieżki zawsze odnoszą się do głównego folderu projektu.
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# Krótsze nazwy bez sufiksu domeny pasują do wszystkich aliasów danego
+# providera — outlook.office365.com, outlook.com i hotmail.com to ten sam
+# serwer, więc rozróżniamy je nazwą konta, a nie domeną.
+PROVIDERS = {
+    'gmail': 'imap.gmail.com',
+    'outlook': 'outlook.office365.com',
+    'proton': '127.0.0.1',
+    'yahoo': 'imap.mail.yahoo.com',
+    'icloud': 'imap.mail.me.com',
+    'duck': 'imap.duck.com',
+    'fastmail': 'imap.fastmail.com',
+    'zoho': 'imap.zoho.com',
+    'gmx': 'imap.gmx.com',
+    'wp': 'imap.wp.pl',
+    'o2': 'imap.o2.pl',
+    'onet': 'imap.onet.pl',
+    'interia': 'imap.interia.pl',
+    'poczta': 'imap.poczta.onet.pl',
+}
+
 class MailHunterConfig:
     def __init__(self, config_path="config.ini"):
         self.project_root = PROJECT_ROOT
         self.config_path = os.path.join(self.project_root, config_path)
         self.config = configparser.ConfigParser()
         self.key_file = os.path.join(self.project_root, "mailhunter.key")
+        self.providers = sorted(PROVIDERS, key=len, reverse=True)
         self._load_or_create_config()
         self._setup_encryption()
     
@@ -65,25 +86,94 @@ class MailHunterConfig:
         return self.cipher_suite.decrypt(encrypted_password.encode()).decode()
     
     def get_email_credentials(self, provider):
-        """Pobiera dane logowania dla providera e-mail"""
+        """Pobiera dane logowania dla providera e-mail.
+
+        Obsługuje wiele kont na jednym providerze. Klucz konta to
+        '<provider>_<nazwa>', np. gmail_praca, gmail_personal, outlook_firma.
+        Konto bez własnej nazwy ('gmail') działa jak dotąd — dla configów
+        zapisanych przed wersją wielokontową.
+        """
         section = 'EMAIL_ACCOUNTS'
-        if section in self.config:
-            user = self.config[section].get(f'{provider}_user', '')
-            encrypted_pass = self.config[section].get(f'{provider}_pass', '')
-            if encrypted_pass:
-                password = self.decrypt_password(encrypted_pass)
-                return user, password
+        if not self.config.has_section(section):
+            return None, None
+
+        user = self.config[section].get(f'{provider}_user', '')
+        encrypted_pass = self.config[section].get(f'{provider}_pass', '')
+        if encrypted_pass:
+            return user, self.decrypt_password(encrypted_pass)
         return None, None
-    
+
+    def get_account_credentials(self, account_key):
+        """Pobiera dane dla konkretnego konta o podanej nazwie.
+
+        account_key to pełna nazwa konta, np. 'gmail_praca'. Zwraca
+        (login, haslo) albo (None, None) gdy konta nie ma.
+        """
+        section = 'EMAIL_ACCOUNTS'
+        if not self.config.has_section(section):
+            return None, None
+        user = self.config[section].get(f'{account_key}_user', '')
+        encrypted_pass = self.config[section].get(f'{account_key}_pass', '')
+        if encrypted_pass:
+            return user, self.decrypt_password(encrypted_pass)
+        return None, None
+
+    def list_accounts(self, provider=None):
+        """Wymienia nazwy kont. provider=None oznacza wszystkie.
+
+        Zwraca listę nazw ('gmail', 'gmail_praca', 'outlook_firma'), bez
+        danych logowania — do pokazania użytkownikowi.
+        """
+        section = 'EMAIL_ACCOUNTS'
+        if not self.config.has_section(section):
+            return []
+        prefiksy = (provider,) if provider else self.providers
+        nazwy = set()
+        for klucz in self.config[section]:
+            if not klucz.endswith('_user'):
+                continue
+            baza = klucz[:-len('_user')]
+            for prefiks in prefiksy:
+                if baza == prefiks or baza.startswith(prefiks + '_'):
+                    nazwy.add(baza)
+        return sorted(nazwy)
+
+    def account_provider(self, account_key):
+        """Z nazwy konta robi providera: 'gmail_praca' → 'gmail'."""
+        for prefiks in self.providers:
+            if account_key == prefiks or account_key.startswith(prefiks + '_'):
+                return prefiks
+        return None
+
     def set_email_credentials(self, provider, username, password):
-        """Zapisuje zaszyfrowane dane logowania"""
-        if 'EMAIL_ACCOUNTS' not in self.config:
+        """Zapisuje zaszyfrowane dane logowania.
+
+        Gdy `provider` zawiera podkreślenie ('gmail_praca'), traktowane jest
+        jako nazwa konkretnego konta. W przeciwnym razie zapis pod providerem
+        domyślnym ('gmail'), jak wcześniej.
+        """
+        if not self.config.has_section('EMAIL_ACCOUNTS'):
             self.config['EMAIL_ACCOUNTS'] = {}
-        
-        self.config['EMAIL_ACCOUNTS'][f'{provider}_user'] = username
-        self.config['EMAIL_ACCOUNTS'][f'{provider}_pass'] = self.encrypt_password(password)
+
+        klucz = provider if '_' in provider else provider
+        self.config['EMAIL_ACCOUNTS'][f'{klucz}_user'] = username
+        self.config['EMAIL_ACCOUNTS'][f'{klucz}_pass'] = self.encrypt_password(password)
         self.save_config()
-    
+
+    def remove_email_credentials(self, account_key):
+        """Usuwa konto po nazwie. Zwraca True gdy coś usunięto."""
+        if not self.config.has_section('EMAIL_ACCOUNTS'):
+            return False
+        usuniete = False
+        for sufiks in ('_user', '_pass'):
+            klucz = f'{account_key}{sufiks}'
+            if self.config.has_option('EMAIL_ACCOUNTS', klucz):
+                self.config.remove_option('EMAIL_ACCOUNTS', klucz)
+                usuniete = True
+        if usuniete:
+            self.save_config()
+        return usuniete
+
     def get_threshold(self, threshold_name):
         """Pobiera próg bezpieczeństwa"""
         if not self.config.has_section('THRESHOLDS'):

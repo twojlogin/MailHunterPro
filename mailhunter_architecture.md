@@ -207,7 +207,7 @@ python configure_accounts.py
 
 ### 3. Uruchomienie
 ```bash
-python mailhunter.py
+python mailhunter_cli.py
 ```
 
 ## 📈 Roadmap Rozwoju

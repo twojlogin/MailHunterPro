@@ -17,7 +17,8 @@ Stworzone przez StruśPędziKOD AI dla technoporady
 | **Batch .eml Analysis** | Analyze entire directories of emails |
 | **JSON/HTML Reports** | SOC-ready reports with dark theme |
 | **Tkinter GUI** | Desktop interface with real-time scanning |
-| **Web Dashboard** | Flask-based web UI on port 5001 |
+| **Wiele kont** | dowolna liczba kont na jednym providerze, każde z własną nazwą |
+| **Web Dashboard** | Flask-based web UI on port 5001 (następny wolny, jeśli zajęty) |
 | **CLI Tool** | `mailhunter_cli.py` for scripting |
 | **Quarantine** | Auto-isolate malicious emails |
 | **Blacklist/Whitelist** | Custom sender/domain lists |
@@ -46,6 +47,7 @@ Stworzone przez StruśPędziKOD AI dla technoporady
   Konto e-mail dodajesz interaktywnie:
   ```bash
   .venv/bin/python configure_accounts.py
+  .venv/bin/python configure_accounts.py --usun gmail_praca
   ```
 
 ## Usage
@@ -155,6 +157,36 @@ MailHunterPro/
 ├── .env.example             # Environment template
 └── requirements.txt         # Dependencies
 ```
+
+## Konta e-mail
+
+Obsługiwane serwery IMAP (wszystkie przez TLS na porcie 993):
+
+| Skrót | Serwer | Uwagi |
+|---|---|---|
+| `gmail` | imap.gmail.com | wymaga hasła aplikacji |
+| `outlook` | outlook.office365.com | obsługuje też outlook.com, hotmail.com, live.com |
+| `proton` | 127.0.0.1:1143 | wymaga ProtonMail Bridge działającego |
+| `yahoo` | imap.mail.yahoo.com | wymaga 2FA i hasła aplikacji |
+| `icloud` | imap.mail.me.com | wymaga hasła specyficznego dla aplikacji |
+| `duck` | imap.duck.com | DuckDuckGo Email |
+| `fastmail` | imap.fastmail.com | |
+| `zoho` | imap.zoho.com | |
+| `gmx` | imap.gmx.com | |
+| `wp` | imap.wp.pl | Poczta WP |
+| `o2` | imap.o2.pl | |
+| `onet` | imap.onet.pl | |
+| `interia` | imap.interia.pl | |
+| `poczta` | imap.poczta.onet.pl | |
+
+Wiele kont na jednym providerze — nazwa po podkreśleniu:
+
+```bash
+python configure_accounts.py     # provider, potem nazwa: gmail → gmail_praca
+```
+
+Konta widoczne w `--status` i przy starcie skanera. Usunięcie:
+`python configure_accounts.py --usun gmail_praca`
 
 ## Tests
 

@@ -253,7 +253,7 @@ if all_ok:
     print("2. Skopiuj kod z artifacts")
     print("3. python setup_env.py")
     print("4. python configure_accounts.py")
-    print("5. python mailhunter.py")
+    print("5. python mailhunter_cli.py")
 else:
     print("⚠️  UWAGA: Niektóre testy nie przeszły!")
     print("\nCo zrobić:")

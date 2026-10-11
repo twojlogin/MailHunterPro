@@ -176,7 +176,7 @@ print("✅ SETUP GOTOWY!")
 print("=" * 60)
 print("\nNastępne kroki:")
 print("1. python configure_accounts.py  # Dodaj konta email")
-print("2. python mailhunter.py          # Uruchom aplikację")
+print("2. python mailhunter_cli.py          # Uruchom aplikację")
 print("\nLUB dla testów:")
 print("python quick_test.py             # Szybki test")
 print("\n" + "=" * 60)
@@ -259,7 +259,7 @@ with open(CONFIG_PATH, 'w') as f:
 print("\n" + "=" * 60)
 print("✅ Konfiguracja zapisana!")
 print("=" * 60)
-print("\nTeraz uruchom: python mailhunter.py")
+print("\nTeraz uruchom: python mailhunter_cli.py")
 '''
 
 with open(os.path.join(PROJECT_ROOT, 'configure_accounts.py'), 'w') as f:
