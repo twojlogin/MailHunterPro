@@ -83,11 +83,18 @@ print("✅ Biblioteki gotowe")
 print("\n[3/5] Tworzę pliki konfiguracyjne...")
 
 # requirements.txt
-with open(os.path.join(PROJECT_ROOT, 'requirements.txt'), 'w') as f:
-    f.write("""beautifulsoup4>=4.12.0
+# Nie nadpisujemy, jeśli już istnieje — plik jest utrzymywany ręcznie
+# i zawiera flask, którego ten skrypt nie zna.
+requirements_path = os.path.join(PROJECT_ROOT, 'requirements.txt')
+if os.path.exists(requirements_path):
+    print("[✓] requirements.txt już istnieje — zostawiam bez zmian")
+else:
+    with open(requirements_path, 'w') as f:
+        f.write("""beautifulsoup4>=4.12.0
 requests>=2.31.0
 cryptography>=41.0.0
 lxml>=4.9.0
+flask>=3.0.0
 """)
 
 # config.ini (przykład)
@@ -116,17 +123,28 @@ quarantine = data/quarantine/
 export = data/export/
 logs = logs/
 """)
-
-# .gitignore
-with open(os.path.join(PROJECT_ROOT, '.gitignore'), 'w') as f:
-    f.write("""*.db
+  
+  # .gitignore
+# Tak jak requirements — nie nadpisujemy istniejącego.
+gitignore_path = os.path.join(PROJECT_ROOT, '.gitignore')
+if os.path.exists(gitignore_path):
+    print("[✓] .gitignore już istnieje — zostawiam bez zmian")
+else:
+    with open(gitignore_path, 'w') as f:
+        f.write(""".venv/
+venv/
+.env
+*.env
+# Encryption keys (NIGDY nie wrzucaj na publiczne repo!)
 *.key
 config.ini
+data/*.db
 logs/
 data/quarantine/
 data/export/
 __pycache__/
 *.pyc
+Thumbs.db
 """)
 
 print("✅ Pliki config gotowe")
@@ -187,7 +205,7 @@ print("\n" + "=" * 60)
 
 # Ten skrypt również jest tworzony w głównym folderze projektu,
 # więc jego wewnętrzne ścieżki (do config.ini i mailhunter.key) będą działać poprawnie.
-# CONFIGURE_ACCOUNTS = r'''#!/usr/bin/env python3
+CONFIGURE_ACCOUNTS = r'''#!/usr/bin/env python3
 # configure_accounts.py - Dodaj konta email
 
 import configparser
@@ -262,8 +280,16 @@ print("=" * 60)
 print("\nTeraz uruchom: python mailhunter_cli.py")
 '''
 
-with open(os.path.join(PROJECT_ROOT, 'configure_accounts.py'), 'w') as f:
-    f.write(CONFIGURE_ACCOUNTS)
+# configure_accounts.py jest utrzymywany ręcznie w repozytorium. Wersja
+# poniżej to starsza kopia bez wielokontowości — jej zapisanie skasowałoby
+# --usun, list_accounts i obsługę 14 serwerów. Dlatego tylko pokazujemy
+# status, nie nadpisujemy.
+_accounts_path = os.path.join(PROJECT_ROOT, 'configure_accounts.py')
+if os.path.exists(_accounts_path):
+    print("[✓] configure_accounts.py już istnieje — zostawiam bez zmian")
+else:
+    with open(_accounts_path, 'w') as f:
+        f.write(CONFIGURE_ACCOUNTS)
 
 # =====================================
 # quick_test.py - SZYBKI TEST
@@ -361,10 +387,12 @@ print("=" * 60)
 '''
 
 quick_test_path = os.path.join(PROJECT_ROOT, 'quick_test.py')
-with open(quick_test_path, 'w') as f:
-    f.write(QUICK_TEST)
-
-os.chmod(quick_test_path, 0o755)
+if os.path.exists(quick_test_path):
+    print("[✓] quick_test.py już istnieje — zostawiam bez zmian")
+else:
+    with open(quick_test_path, 'w') as f:
+        f.write(QUICK_TEST)
+    os.chmod(quick_test_path, 0o755)
 
 print("\n✅ Pliki setup gotowe:")
 print("  - configure_accounts.py")
