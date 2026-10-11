@@ -331,7 +331,8 @@ MIT — use it however you want
 
 ## Author
 
-**StruśPędziKOD AI** / technoporada
+Arek :D z pomoca niech bedzie tego nizej 
+**CLAUDEAI FREE -StruśPędziKOD AI** 
 
 ---
 
