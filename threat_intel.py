@@ -374,10 +374,14 @@ def selfcheck():
 
     conn = otworz_baze()
     n = conn.execute("SELECT COUNT(*) FROM zagrozenia").fetchone()[0]
-    print(f"[{'✓' if n else '✗'}] baza: {n:,} pozycji")
-    if not n:
-        print("    pusto — uruchom: python threat_intel.py update")
-        ok = False
+    # Pusta baza to stan początkowy świeżego klonu (baza jest generowana,
+    # w .gitignore), a nie błąd. Bez tego rozróżnienia świeży klon zgłasza
+    # "SĄ PROBLEMY" mimo że wszystko jest w porządku.
+    if n:
+        print(f"[✓] baza: {n:,} pozycji")
+    else:
+        print("[—] baza pusta — stan początkowy świeżego klonu")
+        print("    feed pobierasz komendą: python threat_intel.py update")
 
     # parser CISA na znanym fragmencie
     przyklad = json.dumps({
@@ -453,7 +457,7 @@ def selfcheck():
     conn.close()
     print()
     print("=" * 66)
-    print("OK" if ok else "SĄ PROBLEMY")
+    print("OK" if ok else ("OK (baza niepobrana)" if not n else "SĄ PROBLEMY"))
     print("=" * 66)
     return 0 if ok else 1
 
