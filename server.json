@@ -1,21 +1,16 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.twojlogin/mailhunter-pro",
-  "title": "MailHunterPro",
-  "description": "Read-only queries on local phishing scan results: findings, IOCs, SPF/DKIM/DMARC.",
   "version": "1.0.0",
-  "websiteUrl": "https://github.com/twojlogin/MailHunterPro",
-  "repository": {
-    "url": "https://github.com/twojlogin/MailHunterPro",
-    "source": "github",
-    "id": "1414675873"
-  },
-  "_meta": {
-    "io.modelcontextprotocol.registry/publisher-provided": {
-      "com.github": {
-        "stars": 0,
-        "language": "Python"
-      }
+  "description": "Local IMAP phishing analyzer with threat intelligence, IOC extraction and optional MCP server",
+  "packages": [
+    {
+      "registry_type": "pypi",
+      "identifier": "mailhunter-pro",
+      "version": "1.0.0"
     }
-  }
+  ],
+  "license": "MIT",
+  "author": "Arkadiusz Słowik",
+  "homepage": "https://github.com/twojlogin/MailHunterPro"
 }
