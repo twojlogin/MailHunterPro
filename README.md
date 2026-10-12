@@ -27,7 +27,7 @@ Stworzone przez StruśPędziKOD AI dla technoporady
   ## Installation
   
   ```bash
-  git clone https://github.com/technoporada/MailHunterPro.git
+  git clone https://github.com/twojlogin/MailHunterPro.git
   cd MailHunterPro
   python3 -m venv .venv
   .venv/bin/pip install -r requirements.txt
