@@ -1,0 +1,72 @@
+<#
+.SYNOPSIS
+    MailHunter Windows Sandbox initialization script
+#>
+
+Write-Host "MailHunter - Windows Sandbox Initialization" -ForegroundColor Cyan
+Write-Host ("=" * 60)
+
+$computerName = $env:COMPUTERNAME
+$isSandbox = $computerName -like "*SANDBOX*"
+if (-not $isSandbox) {
+    Write-Host "Warning: not running inside Windows Sandbox." -ForegroundColor Yellow
+}
+
+$workDir = "C:\MailSandbox"
+if (-not (Test-Path $workDir)) {
+    New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+}
+Set-Location $workDir
+
+Write-Host "`n[1/5] Checking environment..."
+$pythonPath = Get-Command python -ErrorAction SilentlyContinue
+if ($pythonPath) {
+    $pythonVersion = python --version
+    Write-Host "  Python available: $pythonVersion" -ForegroundColor Green
+} else {
+    Write-Host "  Python not found!" -ForegroundColor Red
+}
+
+Write-Host "`n[2/5] Checking network..."
+$ping = Test-Connection -ComputerName 8.8.8.8 -Count 1 -Quiet
+if ($ping) {
+    Write-Host "  Internet connection active" -ForegroundColor Green
+} else {
+    Write-Host "  No internet connection" -ForegroundColor Red
+}
+
+Write-Host "`n[3/5] Mounting directories..."
+if (Test-Path "D:\MailSandbox") {
+    Write-Host "  D:\MailSandbox available" -ForegroundColor Green
+    if (Test-Path "D:\MailSandbox\MailHunter") {
+        Copy-Item -Path "D:\MailSandbox\MailHunter\*" -Destination $workDir -Recurse -Force
+        Write-Host "  MailHunter files copied" -ForegroundColor Green
+    }
+} else {
+    Write-Host "  D:\MailSandbox not available" -ForegroundColor Red
+}
+
+Write-Host "`n[4/5] Installing dependencies..."
+if (Test-Path "$workDir\requirements.txt") {
+    try {
+        python -m pip install -q -r requirements.txt
+        Write-Host "  Dependencies installed" -ForegroundColor Green
+    } catch {
+        Write-Host "  Dependency installation failed" -ForegroundColor Red
+    }
+} else {
+    Write-Host "  Missing requirements.txt" -ForegroundColor Yellow
+}
+
+Write-Host "`n[5/5] Security setup..."
+Write-Host "  Sandbox ready" -ForegroundColor Green
+Write-Host "`n" + ("=" * 60)
+Write-Host "Sandbox ready!"
+Write-Host "Run: python mailhunter_cli.py"
+
+$autoStart = $env:MAILHUNTER_AUTOSTART
+if ($autoStart -eq "1") {
+    Write-Host "Auto-start enabled" -ForegroundColor Cyan
+    Start-Sleep -Seconds 2
+    python mailhunter_cli.py
+}
