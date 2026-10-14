@@ -3,6 +3,7 @@ import email
 import logging
 from datetime import datetime
 
+
 class BatchAnalyzer:
     def __init__(self, parser, security_analyzer, header_analyzer, ioc_extractor, brand_detector, report_generator, url_reputation=None):
         self.parser = parser
@@ -13,6 +14,32 @@ class BatchAnalyzer:
         self.report_generator = report_generator
         self.url_reputation = url_reputation
         self.logger = logging.getLogger(__name__)
+
+    def _safe_score(self, value, default=0):
+        try:
+            if value is None:
+                return default
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _safe_findings(self, result):
+        if isinstance(result, tuple) and len(result) > 1:
+            findings = result[1]
+            return findings if isinstance(findings, list) else []
+        if isinstance(result, list):
+            return result
+        return []
+
+    def _safe_url_result(self, result):
+        if isinstance(result, tuple) and len(result) >= 2:
+            score, findings = result
+            return self._safe_score(score), findings if isinstance(findings, list) else []
+        if isinstance(result, dict):
+            score = result.get('score', 0)
+            findings = result.get('findings', [])
+            return self._safe_score(score), findings if isinstance(findings, list) else []
+        return self._safe_score(result), []
 
     def analyze_file(self, eml_path, output_dir=None):
         try:
@@ -25,30 +52,33 @@ class BatchAnalyzer:
 
             analyzed = self.security_analyzer.analyze_email(parsed)
 
-            header_result = self.header_analyzer.analyze(analyzed.get('headers', {}))
-            iocs = self.ioc_extractor.extract_all(analyzed)
-            brand_result = self.brand_detector.analyze(analyzed)
+            header_result = self.header_analyzer.analyze(analyzed.get('headers', {})) if self.header_analyzer else (0, [])
+            iocs = self.ioc_extractor.extract_all(analyzed) if self.ioc_extractor else []
+            brand_result = self.brand_detector.analyze(analyzed) if self.brand_detector else (0, [])
 
             url_results = {}
             if self.url_reputation:
                 for link in analyzed.get('links', []):
                     url = link.get('url', '')
                     if url:
-                        url_score, url_findings = self.url_reputation.analyze_url(url)
+                        url_score, url_findings = self._safe_url_result(self.url_reputation.analyze_url(url))
                         url_results[url] = {
                             'score': url_score,
                             'findings': url_findings
                         }
 
+            header_score = self._safe_score(header_result[0]) if isinstance(header_result, tuple) and len(header_result) > 0 else 0
+            brand_score = self._safe_score(brand_result[0]) if isinstance(brand_result, tuple) and len(brand_result) > 0 else 0
+
             combined_score = analyzed['analysis']['suspicious_score']
-            combined_score += header_result[0] if isinstance(header_result, tuple) else 0
-            combined_score += brand_result[0] if isinstance(brand_result, tuple) else 0
+            combined_score += header_score
+            combined_score += brand_score
             for url_data in url_results.values():
-                combined_score += url_data.get('score', 0)
+                combined_score += self._safe_score(url_data.get('score', 0))
 
             analyzed['analysis']['suspicious_score'] = min(combined_score, 100)
-            analyzed['analysis']['header_findings'] = header_result[1] if isinstance(header_result, tuple) else []
-            analyzed['analysis']['brand_findings'] = brand_result[1] if isinstance(brand_result, tuple) else []
+            analyzed['analysis']['header_findings'] = self._safe_findings(header_result)
+            analyzed['analysis']['brand_findings'] = self._safe_findings(brand_result)
             analyzed['analysis']['url_results'] = url_results
             analyzed['analysis']['iocs'] = iocs
 
