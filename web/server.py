@@ -36,14 +36,23 @@ batch_analyzer = BatchAnalyzer(
     brand_detector, report_generator, url_reputation
 )
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/api/ping')
+def ping():
+    """Lightweight health/check endpoint used to detect running MailHunterPro instances."""
+    return jsonify({'app': 'MailHunterPro', 'version': '2.0', 'timestamp': datetime.now().isoformat()})
+
 
 @app.route('/api/stats')
 def get_stats():
     stats = db.get_statistics()
     return jsonify(stats)
+
 
 @app.route('/api/emails')
 def get_emails():
@@ -52,6 +61,7 @@ def get_emails():
         'id': e[0], 'sender': e[1], 'subject': e[2],
         'score': e[3], 'date': e[4], 'flags': e[5]
     } for e in emails])
+
 
 @app.route('/api/scan', methods=['POST'])
 def scan_email():
@@ -65,6 +75,7 @@ def scan_email():
     }
     result = analyzer.analyze_email(parsed_email)
     return jsonify(result['analysis'])
+
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_email_full():
@@ -90,12 +101,31 @@ def analyze_email_full():
     for link in analyzed.get('links', []):
         url = link.get('url', '')
         if url:
-            url_score, url_findings = url_reputation.analyze_url(url)
+            # url_reputation.analyze_url may return dict or tuple; normalize conservatively
+            try:
+                res = url_reputation.analyze_url(url)
+                if isinstance(res, tuple) and len(res) >= 2:
+                    url_score, url_findings = res[0], res[1]
+                elif isinstance(res, dict):
+                    url_score = res.get('score', 0)
+                    url_findings = res.get('findings', [])
+                else:
+                    url_score, url_findings = 0, []
+            except Exception:
+                url_score, url_findings = 0, []
             url_results[url] = {'score': url_score, 'findings': url_findings}
 
     combined_score = analyzed['analysis']['suspicious_score']
-    combined_score += header_result[0]
-    combined_score += brand_result[0]
+    # header_result and brand_result can be tuple/dict — be defensive
+    try:
+        combined_score += header_result[0] if isinstance(header_result, (list, tuple)) else header_result.get('score', 0)
+    except Exception:
+        pass
+    try:
+        combined_score += brand_result[0] if isinstance(brand_result, (list, tuple)) else brand_result.get('score', 0)
+    except Exception:
+        pass
+
     for url_data in url_results.values():
         combined_score += url_data.get('score', 0)
     analyzed['analysis']['suspicious_score'] = min(combined_score, 100)
@@ -107,12 +137,13 @@ def analyze_email_full():
         'score': analyzed['analysis']['suspicious_score'],
         'verdict': _get_verdict(analyzed['analysis']['suspicious_score']),
         'flags': analyzed['analysis']['flags'],
-        'header_findings': header_result[1],
-        'brand_findings': brand_result[1],
+        'header_findings': header_result[1] if isinstance(header_result, (list, tuple)) else header_result.get('findings', []),
+        'brand_findings': brand_result[1] if isinstance(brand_result, (list, tuple)) else brand_result.get('findings', []),
         'iocs': iocs,
         'report_json': report_json,
         'report_html': report_html
     })
+
 
 @app.route('/api/batch', methods=['POST'])
 def batch_analyze():
@@ -147,6 +178,7 @@ def batch_analyze():
         } for r in results]
     })
 
+
 @app.route('/api/report/<path:filename>')
 def get_report(filename):
     report_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'reports')
@@ -155,11 +187,13 @@ def get_report(filename):
         return send_file(filepath)
     return jsonify({'error': 'Report not found'}), 404
 
+
 @app.route('/api/blacklist', methods=['POST'])
 def add_blacklist():
     data = request.json
     db.add_to_blacklist(data['type'], data['value'], data.get('reason', ''))
     return jsonify({'status': 'ok'})
+
 
 @app.route('/api/whitelist', methods=['POST'])
 def add_whitelist():
@@ -167,12 +201,14 @@ def add_whitelist():
     db.add_to_whitelist(data['type'], data['value'], data.get('notes', ''))
     return jsonify({'status': 'ok'})
 
+
 def _get_verdict(score):
     if score >= 80: return 'CRITICAL'
     if score >= 60: return 'HIGH'
     if score >= 40: return 'MEDIUM'
     if score >= 20: return 'LOW'
     return 'CLEAN'
+
 
 def _free_port(preferred):
     """Zwraca preferred, a jak zajęty — pierwszy wolny od preferred+1.
@@ -192,8 +228,23 @@ def _free_port(preferred):
         return port
     raise SystemExit(f"Brak wolnego portu w zakresie {preferred}-{preferred + 49}")
 
+
 if __name__ == '__main__':
     _preferred = int(os.environ.get('MAILHUNTER_PORT', '5001'))
+
+    # If preferred port appears occupied, check whether a MailHunterPro instance
+    # is already running there. If so, exit to avoid starting duplicate instances.
+    try:
+        import urllib.request as _ur
+        with _ur.urlopen(f'http://127.0.0.1:{_preferred}/api/ping', timeout=1) as _resp:
+            _data = json.loads(_resp.read().decode())
+            if _data.get('app') == 'MailHunterPro':
+                print(f"MailHunterPro już działa na porcie {_preferred}. Nie uruchamiam kolejnej instancji.")
+                sys.exit(0)
+    except Exception:
+        # Nothing listening on preferred port, or not responsive — proceed
+        pass
+
     _port = _free_port(_preferred)
     if _port != _preferred:
         print(f"Port {_preferred} zajęty, używam {_port}.")
