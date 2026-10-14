@@ -24,31 +24,31 @@ Stworzone przez StruśPędziKOD AI dla technoporady
 | **Blacklist/Whitelist** | Custom sender/domain lists |
 | **SQLite Database** | Local storage of all scan results |
 
-  ## Installation
-  
-  ```bash
-  git clone https://github.com/twojlogin/MailHunterPro.git
-  cd MailHunterPro
-  python3 -m venv .venv
-  .venv/bin/pip install -r requirements.txt
-  .venv/bin/python web/server.py
-  ```
-  
-  `requirements.txt` zawiera wszystko, łącznie z Flaskiem dla web UI. Nic nie
-  trzeba dokładać ręcznie.
-  
-  Port: domyślnie 5001. Jeśli zajęty, serwer bierze następny wolny i mówi
-  który. Wymuś konkretny: `MAILHUNTER_PORT=8080 .venv/bin/python web/server.py`
-  
-  Dane logowania trzymasz w `config.ini` — tworzy się sam przy pierwszym
-  uruchomieniu, hasła są szyfrowane kluczem `mailhunter.key`. Oba pliki oraz
-  `data/*.db` są w `.gitignore` i nie wchodzą do repozytorium.
-  
-  Konto e-mail dodajesz interaktywnie:
-  ```bash
-  .venv/bin/python configure_accounts.py
-  .venv/bin/python configure_accounts.py --usun gmail_praca
-  ```
+## Installation
+
+```bash
+git clone https://github.com/twojlogin/MailHunterPro.git
+cd MailHunterPro
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python web/server.py
+```
+
+`requirements.txt` zawiera wszystko, łącznie z Flaskiem dla web UI. Nic nie
+trzeba dokładać ręcznie.
+
+Port: domyślnie 5001. Jeśli zajęty, serwer bierze następny wolny i mówi
+który. Wymuś konkretny: `MAILHUNTER_PORT=8080 .venv/bin/python web/server.py`
+
+Dane logowania trzymasz w `config.ini` — tworzy się sam przy pierwszym
+uruchomieniu, hasła są szyfrowane kluczem `mailhunter.key`. Oba pliki oraz
+`data/*.db` są w `.gitignore` i nie wchodzą do repozytorium.
+
+Konto e-mail dodajesz interaktywnie:
+```bash
+.venv/bin/python configure_accounts.py
+.venv/bin/python configure_accounts.py --usun gmail_praca
+```
 
 ## Usage
 
@@ -185,9 +185,6 @@ Wiele kont na jednym providerze — nazwa po podkreśleniu:
 python configure_accounts.py     # provider, potem nazwa: gmail → gmail_praca
 ```
 
-Konta widoczne w `--status` i przy starcie skanera. Usunięcie:
-`python configure_accounts.py --usun gmail_praca`
-
 ## Stan zagrożeń ze świata (opcjonalne)
 
 Feed pobierany do lokalnej bazy, potem działa offline. Nie wymaga konta,
@@ -219,7 +216,7 @@ posiadasz. Feedy wymagające konta wygasają, bo nikt ich nie odświeża.
 ```
 141 695  pozycji w bazie
 141 548  unikalnych wartości
-    147  domen widzianych w dwóch feedach naraz
+   147  domen widzianych w dwóch feedach naraz
 ```
 
 **147 wspólnych domen to nie jest szum.** Nieliczni operatorzy phishingu
@@ -230,15 +227,12 @@ feedach wyglądałby jak dwa różne zagrożenia, a liczba baży się rozjeżdż
 `diff` porównuje dwa ostatnie pobrania, więc po tygodniu zobaczysz dokładnie
 co przyszło: nowe domeny, nowe CVE, daty `dueDate` z CISA.
 
-Czego to **nie robi**: nie łączy się z siecią bez Twojego `update`, nie
-wysyła nic do LLM, nie wykonuje kodu z feedu, nie blokuje niczego sam —
-daje Ci listę, decyzja jest Twoja.
+Czego to **nie robi**: nie łączy się z siecią bez Twojego `update`, nie wysyła nic do LLM, nie wykonuje kodu z feedu, nie blokuje niczego sam — daje Ci listę, decyzja jest Twoja.
 
 ## Serwer MCP (opcjonalny, wyłączony domyślnie)
 
 **Nie uruchamia się sam i nie jest częścią żadnego innego pliku w projekcie.**
 Nic go nie importuje — sprawdzone `grep -rl mcp_server` po wszystkich `.py`.
-Web UI i CLI o nim nie wiedzą.
 
 Uruchomienie jest ręczne i jednozdaniowe:
 
@@ -247,8 +241,7 @@ Uruchomienie jest ręczne i jednozdaniowe:
 .venv/bin/python mcp_server.py --selfcheck # sprawdzenie bez klienta
 ```
 
-Pięć narzędzi: `scan_stats`, `list_findings`, `get_finding`, `list_iocs`,
-`account_status`. Model dostaje liczby i metadane z twojej bazy — nic nie
+Pięć narzędzi: `scan_stats`, `list_findings`, `get_finding`, `list_iocs`, `account_status`. Model dostaje liczby i metadane z twojej bazy — nic nie
 wysyła, nie zapisuje, nie łączy się ze skrzynką i nie zwraca haseł.
 
 ### Dlaczego to w ogóle i dlaczego ostrożnie
@@ -324,6 +317,137 @@ pliku konfiguracyjnym.
   Wychodzi sam URL z maila — nie treść, nie załączniki
 - Klucz szyfrowania generuje się przy pierwszym uruchomieniu — utrata pliku
   oznacza utratę odczytu haseł w bazie
+
+## Finalny audyt — co sprawdziłem i co poprawiłem
+
+Wykonałem pełny przegląd katalogu `core/` i zastosowałem szereg poprawek
+hardeningowych, by system był odporniejszy na uszkodzone lub niekompletne
+wiadomości, błędy zewnętrznych usług oraz różnice w kształcie zwracanych
+wyników przez wewnętrzne analizatory.
+
+Zmiany (najważniejsze):
+
+- `core/batch_analyzer.py` — normalizacja wyników i defensywne łączenie
+  wyników, ochrona przed brakującymi polami i błędami generowania raportów.
+- `core/report_generator.py` — akceptuje zarówno `tuple(score, findings)` jak i
+  `dict{score, findings}` (normalizacja wejścia), bezpieczne renderowanie HTML/JSON.
+- `core/security_analyzer.py` — sprawdzanie typów wejściowych, ochrona przed
+  brakującymi polami (`headers`, `body`, `links`, `attachments`), deduplikacja flag,
+  i obsługa wyjątków przy wywoływaniu zewnętrznych analizatorów.
+- `core/parser.py` — hardening parsowania: bezpieczne dekodowanie nagłówków,
+  odporność na None/nieoczekiwane typy, deduplikacja linków, limity długości
+  URL-i, bezpieczne dekodowanie payloadów.
+- `core/url_reputation.py` — walidacja wejścia, cache dla powtarzalnych URL-i,
+  bezpieczne wywołania sieciowe (timeouty, JSON parsing fallback), normalizacja wyników.
+
+Cofnij zmiany tylko jeśli chcesz — wszystko jest zatwierdzone jako serię commitów
+w branchu `main` (bez dodatkowego branchowania). Zalecam przegląd przed
+wdrożeniem na produkcję.
+
+## Rekomendacje — lista rzeczy, które warto dodać (krótko, po polsku, jak dla laika)
+
+1. Uruchom testy i CI (GitHub Actions)
+   - co robi: automatycznie uruchamia testy po każdym commicie.
+   - dlaczego: błędy trafiają szybciej, nie psujemy main.
+
+2. Dodać testy dla `batch_analyzer` i `report_generator`
+   - co robi: sprawdza, czy raporty się generują przy różnych wejściach.
+   - dlaczego: to krytyczna ścieżka, teraz nie ma testów.
+
+3. Dodać cache globalny / persistent dla URL reputation (Redis albo local)
+   - co robi: nie pytamy VirusTotal/URLhaus za każdym razem o ten sam URL.
+   - dlaczego: oszczędza api i przyspiesza analizę batch.
+
+4. Rate-limiting i retry z backoff dla zewnętrznych API
+   - co robi: jeśli API chwilowo nie odpowiada, próbujemy jeszcze kilka razy.
+   - dlaczego: stabilność sieci i unikanie blokad.
+
+5. Dodać linter i type checking (flake8 / mypy)
+   - co robi: wykrywa błędy w kodzie i niespójności typów.
+   - dlaczego: mniej bugów i lepsza czytelność.
+
+6. Dodać integracyjne testy dla IMAP (można mockować serwer)
+   - co robi: sprawdza cały flow: pobierz mail → parsuj → analizuj → raport.
+   - dlaczego: wykrywa problemy w integracji między modułami.
+
+7. Dodać monitoring i alerty (Sentry lub inny)
+   - co robi: zarejestruje błędy produkcyjne i wyśle powiadomienie.
+   - dlaczego: szybkie reagowanie na błędy.
+
+8. Zabezpieczyć klucze API i sekrety (Vault / environment vars)
+   - co robi: nie trzymamy kluczy w repozytorium.
+   - dlaczego: bezpieczeństwo i zgodność z dobrymi praktykami.
+
+9. Dodać dokumentację konfigurowania VirusTotal key i URLhaus (jeśli wymagane)
+   - co robi: krok po kroku instrukcja dla laika jak dodać klucz.
+   - dlaczego: użytkownicy będą wiedzieć jak wzbogacić analizę.
+
+10. Dodać opcjonalne tryby asymetrycznego odizolowania załączników
+    - co robi: wywoływanie sandboxa (np. Docker) do bezpiecznego otwierania załączników.
+    - dlaczego: zabezpiecza przed złośliwym kodem w załącznikach.
+
+11. Dodać throttling/parallelism kontrolowany przez konfigurację
+    - co robi: analizuje wiele maili równolegle, ale z limitem.
+    - dlaczego: szybka analiza batch, bez zgniatania API.
+
+12. Dodać bardziej szczegółowy logging i poziomy (INFO/DEBUG/ERROR)
+    - co robi: łatwiej debugować i zbierać metryki.
+    - dlaczego: utrzymanie i diagnostyka w produkcji.
+
+## Krótkie instrukcje (dla laika) — co zrobić teraz, krok po kroku
+
+1. Stwórz środowisko i uruchom testy:
+
+```bash
+git pull origin main
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pytest tests/ -q
+```
+
+2. Jeśli testy są zielone, uruchom skan na przykładowych mailach:
+
+```bash
+.venv/bin/python mailhunter_cli.py batch ./tests/eml_samples/
+```
+
+3. Aby włączyć VirusTotal, ustaw klucz w pliku `.env` lub w `config.ini` (przykład):
+
+```ini
+[API_KEYS]
+virustotal = YOUR_VT_KEY_HERE
+```
+
+4. Jeśli chcesz widzieć co robi aplikacja krok po kroku, włącz DEBUG w pliku konfiguracyjnym lub ustaw:
+
+```bash
+export MAILHUNTER_LOG_LEVEL=DEBUG
+```
+
+5. Wprowadź CI (prosty plik `.github/workflows/python-app.yml`) i dodaj `pytest` oraz `flake8` jako kroki.
+
+## Co zrobiłem w tym audycie (krótkie podsumowanie techniczne)
+
+- Przejrzałem pliki w `core/` i zidentyfikowałem miejsca podatne na:
+  - brakujące pola w danych wejściowych,
+  - różne typy wyniku z analizatorów (tuple vs dict),
+  - błędy sieciowe i brak cache dla zewnętrznych API,
+  - brak testów dla krytycznych ścieżek.
+
+- Wprowadziłem poprawki (commitowane do main):
+  1. Normalizacja wyników i defensywne łączenie w `batch_analyzer.py`.
+  2. ReportGenerator: akceptowanie różnych formatów wyników i bezpieczne renderowanie.
+  3. SecurityAnalyzer: walidacja wejść, try/except wokół analizatorów i deduplikacja flag.
+  4. Parser: odporniejsze parsowanie wiadomości, bezpieczne dekodowanie i deduplikacja linków.
+  5. URLReputation: walidacja wejść, cache TTL, bezpieczne wywołania sieciowe i normalizacja odpowiedzi.
+
+## Co warto zrobić dalej (priorytety)
+
+1. Dodać testy integracyjne i testy dla `batch_analyzer` / `report_generator` (wysoki priorytet).
+2. Dodać CI (GitHub Actions) z uruchomieniem testów, lint i mypy (wysoki priorytet).
+3. Dodać persistent cache dla URL reputation (Redis) i retry/backoff (średni).
+4. Dodać monitoring (Sentry) i centralne logi (ELK/Prometheus) — średni.
+5. Przegląd bezpieczeństwa zależności (dependabot) i pinowanie wersji — średni.
 
 ## License
 
