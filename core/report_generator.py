@@ -3,11 +3,24 @@ import os
 import logging
 from datetime import datetime
 
+
 class ReportGenerator:
     def __init__(self, output_dir=None):
         self.logger = logging.getLogger(__name__)
         self.output_dir = output_dir or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'reports')
         os.makedirs(self.output_dir, exist_ok=True)
+
+    @staticmethod
+    def _normalize_analysis(value):
+        if value is None:
+            return 0, []
+        if isinstance(value, dict):
+            return value.get('score', 0), value.get('findings', [])
+        if isinstance(value, tuple) and len(value) >= 2:
+            return value[0], value[1]
+        if isinstance(value, (int, float)):
+            return value, []
+        return 0, []
 
     def generate_json(self, analyzed_email, iocs=None, header_analysis=None, url_results=None, brand_analysis=None):
         report = {
@@ -133,31 +146,37 @@ tr:hover {{ background: #1a1a2e; }}
         return filepath
 
     def _get_verdict(self, score):
-        if score >= 80: return 'CRITICAL — Malicious'
-        if score >= 60: return 'HIGH — Likely phishing'
-        if score >= 40: return 'MEDIUM — Suspicious'
-        if score >= 20: return 'LOW — Some concerns'
+        if score >= 80:
+            return 'CRITICAL — Malicious'
+        if score >= 60:
+            return 'HIGH — Likely phishing'
+        if score >= 40:
+            return 'MEDIUM — Suspicious'
+        if score >= 20:
+            return 'LOW — Some concerns'
         return 'CLEAN — No issues detected'
 
     def _get_verdict_color(self, score):
-        if score >= 80: return '#ef4444'
-        if score >= 60: return '#f97316'
-        if score >= 40: return '#facc15'
-        if score >= 20: return '#a3e635'
+        if score >= 80:
+            return '#ef4444'
+        if score >= 60:
+            return '#f97316'
+        if score >= 40:
+            return '#facc15'
+        if score >= 20:
+            return '#a3e635'
         return '#4ade80'
 
     def _get_score_class(self, score):
-        if score >= 60: return 'high'
-        if score >= 30: return 'mid'
+        if score >= 60:
+            return 'high'
+        if score >= 30:
+            return 'mid'
         return 'low'
 
     def _format_header_analysis(self, header_analysis):
-        if not header_analysis:
-            return {}
-        return {
-            'total_score': header_analysis[0] if isinstance(header_analysis, tuple) else 0,
-            'findings': header_analysis[1] if isinstance(header_analysis, tuple) else []
-        }
+        score, findings = self._normalize_analysis(header_analysis)
+        return {'total_score': score, 'findings': findings}
 
     def _format_url_results(self, url_results):
         if not url_results:
@@ -171,12 +190,8 @@ tr:hover {{ background: #1a1a2e; }}
         return results
 
     def _format_brand_analysis(self, brand_analysis):
-        if not brand_analysis:
-            return {}
-        return {
-            'total_score': brand_analysis[0] if isinstance(brand_analysis, tuple) else 0,
-            'findings': brand_analysis[1] if isinstance(brand_analysis, tuple) else []
-        }
+        score, findings = self._normalize_analysis(brand_analysis)
+        return {'total_score': score, 'findings': findings}
 
     def _format_iocs(self, iocs):
         if not iocs:
@@ -184,14 +199,12 @@ tr:hover {{ background: #1a1a2e; }}
         return iocs
 
     def _render_auth_table(self, header_analysis):
-        if not header_analysis or not isinstance(header_analysis, tuple):
-            return ''
-        findings = header_analysis[1] if len(header_analysis) > 1 else []
+        score, findings = self._normalize_analysis(header_analysis)
         if not findings:
             return ''
 
         rows = ''.join(
-            f'<tr><td>{f["type"]}</td><td>{f["weight"]}</td><td>{f["detail"]}</td></tr>'
+            f'<tr><td>{f.get("type", "N/A")}</td><td>{f.get("weight", 0)}</td><td>{f.get("detail", "")}</td></tr>'
             for f in findings
         )
         return f"""
@@ -214,7 +227,7 @@ tr:hover {{ background: #1a1a2e; }}
         rows = ''
         for item in url_results:
             url = item.get('url', 'N/A')
-            malicious = item.get('malicious', 0)
+            malicious = item.get('score', 0) or item.get('malicious', 0)
             tag = '🔴' if malicious > 0 else '🟢'
             rows += f'<tr><td>{url[:60]}{"..." if len(url) > 60 else ""}</td><td>{tag}</td><td>{malicious}</td></tr>'
 
@@ -228,14 +241,12 @@ tr:hover {{ background: #1a1a2e; }}
   </div>"""
 
     def _render_brand_section(self, brand_analysis):
-        if not brand_analysis or not isinstance(brand_analysis, tuple):
-            return ''
-        findings = brand_analysis[1] if len(brand_analysis) > 1 else []
+        _, findings = self._normalize_analysis(brand_analysis)
         if not findings:
             return ''
 
         items = ''.join(
-            f'<div class="flag">{f["type"]}: {f["brand"]} — {f["detail"]}</div>'
+            f'<div class="flag">{f.get("type", "N/A")}: {f.get("brand", "") } — {f.get("detail", "")}</div>'
             for f in findings
         )
         return f"""
@@ -247,12 +258,15 @@ tr:hover {{ background: #1a1a2e; }}
     def _render_iocs(self, iocs):
         if not iocs:
             return ''
-        defanged = iocs.get('defanged', [])
+        try:
+            defanged = iocs.get('defanged', [])
+        except AttributeError:
+            return ''
         if not defanged:
             return ''
 
         items = ''.join(
-            f'<div class="ioc-item"><strong>{i["type"]}</strong>: {i["defanged"]}</div>'
+            f'<div class="ioc-item"><strong>{i.get("type", "N/A")}</strong>: {i.get("defanged", "")}</div>'
             for i in defanged
         )
         return f"""
