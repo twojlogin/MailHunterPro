@@ -7,6 +7,12 @@
 
 The root project folders are the canonical source of truth for MailHunterPro.
 
+## Archived experiments
+
+The project archive lives in `_smieci/` and contains temporary experiments, discarded prototypes, and scratch scripts. It is not part of the active runtime or the supported production code path.
+
+Archive directory: [MailHunterPro/_smieci](https://github.com/twojlogin/MailHunterPro/tree/main/_smieci)
+
 ---
 
 ## Demo / Run locally
