@@ -1,4 +1,4 @@
-# integrations/virustotal.py
+# Moduł integracji: VirusTotal, AbuseIPDB, AI, domeny, kontekst, załączniki.
 """
 Integracja z VirusTotal API
 """
