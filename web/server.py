@@ -36,7 +36,7 @@ header_analyzer = HeaderAnalyzer()
 ioc_extractor = IOCExtractor()
 brand_detector = BrandDetector()
 report_generator = ReportGenerator()
-url_reputation = URLReputation(vt_key=config.get_api_key('virustotal'))
+url_reputation = URLReputation()
 
 batch_analyzer = BatchAnalyzer(
     parser,
