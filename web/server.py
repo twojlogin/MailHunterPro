@@ -201,8 +201,14 @@ def batch_analyze():
 @app.route('/api/report/<path:filename>')
 def get_report(filename):
     report_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'reports')
-    filepath = os.path.join(report_dir, filename)
-    if os.path.exists(filepath):
+    available = {}
+    if os.path.isdir(report_dir):
+        for name in os.listdir(report_dir):
+            full = os.path.join(report_dir, name)
+            if os.path.isfile(full):
+                available[name] = full
+    filepath = available.get(os.path.basename(filename))
+    if filepath is not None:
         return send_file(filepath)
     return jsonify({'error': 'Report not found'}), 404
 
@@ -297,7 +303,7 @@ def _free_port(preferred):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
-                sock.bind(('0.0.0.0', port))
+                sock.bind(('127.0.0.1', port))
             except OSError:
                 continue
         return port

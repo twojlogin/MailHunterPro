@@ -102,7 +102,7 @@ class IOCExtractor:
 
     def _extract_emails(self, content):
         emails = set()
-        pattern = re.compile(r'[\w\.\-]+@[\w\.\-]+\.[a-zA-Z]{2,}')
+        pattern = re.compile(r'[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}')
         for match in pattern.finditer(content):
             emails.add(match.group().lower())
         return list(emails)
