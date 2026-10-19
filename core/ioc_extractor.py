@@ -102,9 +102,13 @@ class IOCExtractor:
 
     def _extract_emails(self, content):
         emails = set()
-        pattern = re.compile(r'[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}')
-        for match in pattern.finditer(content):
-            emails.add(match.group().lower())
+        for candidate in re.findall(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+', content):
+            local, _, domain = candidate.partition('@')
+            if not local or '.' not in domain:
+                continue
+            tld = domain.rsplit('.', 1)[-1]
+            if len(tld) >= 2 and tld.isalpha():
+                emails.add(candidate.lower())
         return list(emails)
 
     def _extract_hashes(self, content):
