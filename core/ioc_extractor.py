@@ -102,9 +102,11 @@ class IOCExtractor:
 
     def _extract_emails(self, content):
         emails = set()
-        for candidate in re.findall(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+', content):
-            local, _, domain = candidate.partition('@')
-            if not local or '.' not in domain:
+        pattern = re.compile(r'[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9.\-]{1,255}')
+        for match in pattern.finditer(content):
+            candidate = match.group()
+            _, _, domain = candidate.partition('@')
+            if '.' not in domain:
                 continue
             tld = domain.rsplit('.', 1)[-1]
             if len(tld) >= 2 and tld.isalpha():
