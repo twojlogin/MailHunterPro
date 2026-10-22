@@ -82,6 +82,36 @@ ZRODLA = {
         "rodzaj": "domena",
         "wymaga_klucza": False,
     },
+    "cert-polska": {
+        "opis": "CERT Polska Warning List — domeny phishing/malware polskich uzytkownikow",
+        "url": "https://hole.cert.pl/domains/v2/domains.txt",
+        "rodzaj": "domena",
+        "wymaga_klucza": False,
+    },
+    "urlhaus": {
+        "opis": "URLhaus (abuse.ch) — phishing/malware URL-e, bez klucza",
+        "url": "https://urlhaus.abuse.ch/downloads/csv_recent/",
+        "rodzaj": "url",
+        "wymaga_klucza": False,
+    },
+    "threatfox": {
+        "opis": "ThreatFox (abuse.ch) — IOC: domeny/IP/URL, bez klucza",
+        "url": "https://threatfox.abuse.ch/downloads/hostfile/",
+        "rodzaj": "domena",
+        "wymaga_klucza": False,
+    },
+    "cinsscore": {
+        "opis": "CINSscore — zlosliwe IP, bez klucza",
+        "url": "https://cinsscore.com/list/ci-badguys.txt",
+        "rodzaj": "ip",
+        "wymaga_klucza": False,
+    },
+    "siberkapan": {
+        "opis": "SiberKapan — polskie domeny phishing, bez klucza",
+        "url": "https://siberkapan.org/domains/siberkapan/txt",
+        "rodzaj": "domena",
+        "wymaga_klucza": False,
+    },
 }
 
 

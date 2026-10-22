@@ -1,185 +1,127 @@
-import re
-import hashlib
+"""
+SecurityAnalyzer — fasada bezpieczeństwa emaila.
+
+Łączy istniejące detektory (marka, ukryta treść, trackery, prompt injection,
+IOC, reputacja URL) w jedno analyze_email() zwracające wynik 0-100 i flagi.
+Testy (tests/test_security_analyzer.py) opisują tę klasę — dotychczas nie było
+jej implementacji, więc testy nie przechodziły.
+"""
 import logging
-from urllib.parse import urlparse
-import base64
+import re
 
-from core.temp_detector import TempDetector
+from core.brand_detector import BrandDetector
+from core.hidden_content_detector import HiddenContentDetector
+from core.tracker_detector import TrackerDetector
+from core.prompt_detector import PromptDetector
+from core.ioc_extractor import IOCExtractor
+from core.url_reputation import URLReputation
 
 
-class IOCExtractor:
-    def __init__(self):
+class SecurityAnalyzer:
+    def __init__(self, config, db):
+        self.config = config
+        self.db = db
         self.logger = logging.getLogger(__name__)
-        self.temp_detector = TempDetector()
+        self.brand_detector = BrandDetector()
+        self.hidden_content_detector = HiddenContentDetector()
+        self.tracker_detector = TrackerDetector()
+        self.prompt_detector = PromptDetector()
+        self.ioc_extractor = IOCExtractor()
+        self.url_reputation = URLReputation(
+            vt_key=config.get_api_key('virustotal') if hasattr(config, 'get_api_key') else None
+        )
 
-    def extract_all(self, parsed_email):
-        iocs = {
-            'urls': [],
-            'ips': [],
-            'domains': [],
-            'emails': [],
-            'hashes': [],
-            'defanged': [],
-            'temp_emails': [],
-            'phone_numbers': []
-        }
-
-        body_text = parsed_email.get('body', {}).get('text', '')
-        body_html = parsed_email.get('body', {}).get('html', '')
+    def analyze_email(self, parsed_email):
+        """Analizuj email. Zwraca dict z analysis.suspicious_score (0-100)
+        i analysis.flags (lista stringów)."""
         headers = parsed_email.get('headers', {})
+        body = parsed_email.get('body', {})
+        text = body.get('text', '')
+        html = body.get('html', '')
+        content = text + ' ' + html
+        links = parsed_email.get('links', [])
         attachments = parsed_email.get('attachments', [])
 
-        content = body_text + ' ' + body_html
+        flags = []
+        score = 0
 
-        iocs['urls'] = self._extract_urls(content, headers)
-        iocs['ips'] = self._extract_ips(content, headers)
-        iocs['domains'] = self._extract_domains(iocs['urls'], content)
-        iocs['emails'] = self._extract_emails(content)
-        iocs['temp_emails'] = self._extract_temp_emails(iocs['emails'])
-        iocs['phone_numbers'] = self._extract_phone_numbers(content)
-        iocs['hashes'] = self._extract_hashes(content)
-        iocs['defanged'] = self._defang_all(iocs)
-
-        return iocs
-
-    def _extract_urls(self, content, headers):
-        urls = set()
-        pattern = re.compile(
-            r'https?://(?:[a-zA-Z0-9\-._~:/?#\[\]@!$&\'()*+,;=%])+',
-            re.IGNORECASE
-        )
-        for match in pattern.finditer(content):
-            url = match.group().rstrip('.,;:!?)>')
-            urls.add(url)
-
-        for h in headers.get('Received_Chain', []):
-            for match in pattern.finditer(h):
-                urls.add(match.group().rstrip('.,;:!?)>'))
-
-        return list(urls)
-
-    def _extract_ips(self, content, headers):
-        ips = set()
-        ipv4 = re.compile(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b')
-        for match in ipv4.finditer(content):
-            ip = match.group()
-            if not self._is_private_ip(ip):
-                ips.add(ip)
-
-        for ip in headers.get('Received_IPs', []):
-            ips.add(ip)
-
-        for h in headers.get('Received_Chain', []):
-            for match in ipv4.finditer(h):
-                ip = match.group()
-                if not self._is_private_ip(ip):
-                    ips.add(ip)
-
-        ipv6 = re.compile(r'\b(?:[0-9a-fA-F]{1,4}:){1,7}[0-9a-fA-F]{1,4}\b')
-        for match in ipv6.finditer(content):
-            val = match.group()
-            if ':' in val and len(val) > 10:
-                ips.add(val)
-
-        return list(ips)
-
-    def _extract_domains(self, urls, content):
-        domains = set()
-        for url in urls:
+        # Brand spoofing / ukryta treść / trackery / prompt injection —
+        # detektory przyjmują parsed_email, nie pojedyncze stringi.
+        for detector, flag, pts in (
+            (self.brand_detector, 'BRAND_SPOOFING', 25),
+            (self.hidden_content_detector, 'HIDDEN_CONTENT', 15),
+            (self.tracker_detector, 'TRACKERS', 15),
+            (self.prompt_detector, 'PROMPT_INJECTION', 30),
+        ):
             try:
-                parsed = urlparse(url)
-                if parsed.netloc:
-                    domain = parsed.netloc.split(':')[0].lower()
-                    if domain:
-                        domains.add(domain)
+                wynik = detector.analyze(parsed_email) or {}
+                if wynik.get('suspicious') or wynik.get('spoofed') \
+                        or wynik.get('found') or wynik.get('detected') \
+                        or wynik.get('trackers'):
+                    flags.append(flag)
+                    score += pts
             except Exception:
                 pass
 
-        ip_pattern = re.compile(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b')
-        domain_pattern = re.compile(
-            r'\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}\b'
-        )
-        for match in domain_pattern.finditer(content):
-            domain = match.group().lower()
-            if not ip_pattern.match(domain) and '.' in domain:
-                tld = domain.split('.')[-1]
-                if len(tld) >= 2 and tld.isalpha():
-                    domains.add(domain)
+        # XSS / script tags
+        if re.search(r'<script\b', content, re.IGNORECASE):
+            flags.append('XSS_SCRIPT')
+            score += 25
 
-        return list(domains)
+        # Phishing keywords
+        phishing_words = ['verify', 'account', 'suspended', 'urgent', 'click here',
+                          'password', 'login', 'bank', 'confirm', 'update']
+        phishing_hits = sum(1 for w in phishing_words if w in content.lower())
+        if phishing_hits >= 2:
+            flags.append('PHISHING_KEYWORDS')
+            score += min(phishing_hits * 10, 30)
 
-    def _extract_emails(self, content):
-        emails = set()
-        pattern = re.compile(r'[\w\.\-]+@[\w\.\-]+\.[a-zA-Z]{2,}')
-        for match in pattern.finditer(content):
-            emails.add(match.group().lower())
-        return list(emails)
+        # Suspicious links
+        for link in links:
+            if link.get('suspicious'):
+                flags.append('SUSPICIOUS_LINK')
+                score += 15
+                break
 
-    def _extract_temp_emails(self, emails):
-        return [email for email in emails if self.temp_detector.is_disposable_email(email)]
+        # URL reputation for links
+        for link in links:
+            url = link.get('url', '')
+            if url:
+                try:
+                    rep = self.url_reputation.check_url(url)
+                    if rep.get('malicious'):
+                        flags.append('MALICIOUS_URL')
+                        score += 25
+                        break
+                except Exception:
+                    pass
 
-    def _extract_phone_numbers(self, content):
-        return self.temp_detector.extract_phone_numbers(content)
+        # Blacklist
+        sender = headers.get('From', '')
+        if self.db and hasattr(self.db, 'is_blacklisted'):
+            try:
+                if self.db.is_blacklisted('email', sender):
+                    flags.append('BLACKLISTED_SENDER')
+                    score += 40
+            except Exception:
+                pass
 
-    def _extract_hashes(self, content):
-        hashes = set()
-        md5 = re.compile(r'\b[0-9a-fA-F]{32}\b')
-        sha1 = re.compile(r'\b[0-9a-fA-F]{40}\b')
-        sha256 = re.compile(r'\b[0-9a-fA-F]{64}\b')
+        # IOC extraction
+        try:
+            iocs = self.ioc_extractor.extract_all(parsed_email)
+            total_iocs = sum(len(v) for v in iocs.values() if isinstance(v, list))
+            if total_iocs > 10:
+                score += 10
+        except Exception:
+            pass
 
-        for match in sha256.finditer(content):
-            hashes.add(('SHA256', match.group().lower()))
-        for match in sha1.finditer(content):
-            h = match.group().lower()
-            if not any(h == existing[1] for existing in hashes if existing[0] == 'SHA256'):
-                hashes.add(('SHA1', h))
-        for match in md5.finditer(content):
-            h = match.group().lower()
-            if not any(h[:32] == existing[1][:32] for existing in hashes):
-                hashes.add(('MD5', h))
-
-        return [{'type': t, 'value': v} for t, v in hashes]
-
-    def _defang_all(self, iocs):
-        defanged = []
-        for url in iocs.get('urls', []):
-            defanged.append({
-                'type': 'URL',
-                'original': url,
-                'defanged': url.replace('http://', 'hxxp://').replace('https://', 'hxxps://').replace('.', '[.]')
-            })
-        for ip in iocs.get('ips', []):
-            defanged.append({
-                'type': 'IP',
-                'original': ip,
-                'defanged': ip.replace('.', '[.]')
-            })
-        for domain in iocs.get('domains', []):
-            defanged.append({
-                'type': 'DOMAIN',
-                'original': domain,
-                'defanged': domain.replace('.', '[.]')
-            })
-        for email in iocs.get('emails', []):
-            defanged.append({
-                'type': 'EMAIL',
-                'original': email,
-                'defanged': email.replace('@', '[at]').replace('.', '[.]')
-            })
-        for phone in iocs.get('phone_numbers', []):
-            defanged.append({
-                'type': 'PHONE',
-                'original': phone,
-                'defanged': phone.replace('+', '[+]')
-            })
-        return defanged
-
-    def _is_private_ip(self, ip):
-        private_ranges = [
-            '127.', '10.', '192.168.', '169.254.',
-            '172.16.', '172.17.', '172.18.', '172.19.',
-            '172.20.', '172.21.', '172.22.', '172.23.',
-            '172.24.', '172.25.', '172.26.', '172.27.',
-            '172.28.', '172.29.', '172.30.', '172.31.',
-        ]
-        return any(ip.startswith(prefix) for prefix in private_ranges)
+        return {
+            'headers': headers,
+            'body': body,
+            'links': links,
+            'attachments': attachments,
+            'analysis': {
+                'suspicious_score': min(score, 100),
+                'flags': flags,
+            },
+        }

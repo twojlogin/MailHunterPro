@@ -41,3 +41,5 @@ Thumbs.db
 logs/
 data/threat_intel.db
 .pytest_cache/
+_smieci/
+core/data/
