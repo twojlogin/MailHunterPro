@@ -13,7 +13,7 @@ phonenumbers>=8.13.0
 # tkinter jest wbudowane w Pythona
 
 # Web UI (web/server.py, start_web.sh)
-flask>=3.0.0
+flask>=3.1.3
 
 # Tor (opcjonalne)
 PySocks>=1.7.1
