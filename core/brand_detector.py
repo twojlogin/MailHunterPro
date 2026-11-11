@@ -2,6 +2,9 @@ import re
 import logging
 from urllib.parse import urlparse
 
+_DISPLAY_RE = re.compile(r'^"?([^"<]+)"?\s*<')
+_DOMAIN_RE = re.compile(r'@([\w\.-]+)')
+
 class BrandDetector:
     KNOWN_BRANDS = {
         'microsoft': {
@@ -163,13 +166,13 @@ class BrandDetector:
     def _extract_display_name(self, header):
         if not header:
             return ''
-        match = re.match(r'^"?([^"<]+)"?\s*<', header)
+        match = _DISPLAY_RE.match(header)
         return match.group(1).strip() if match else ''
 
     def _extract_domain(self, header):
         if not header:
             return ''
-        match = re.search(r'@([\w\.-]+)', header)
+        match = _DOMAIN_RE.search(header)
         return match.group(1).lower() if match else ''
 
     def _check_brand_in_display_name(self, display_name):

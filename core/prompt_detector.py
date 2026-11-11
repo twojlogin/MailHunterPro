@@ -96,6 +96,19 @@ class PromptDetector:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self._system_prompts = [re.compile(p, re.IGNORECASE) for p in self.SYSTEM_PROMPT_PATTERNS]
+        self._sensitive = [re.compile(p, re.IGNORECASE) for p in self.SENSITIVE_DATA_REQUESTS]
+        self._hidden = []
+        for p in self.HIDDEN_INSTRUCTION_VECTORS:
+            if isinstance(p, tuple):
+                regex, desc = p
+                self._hidden.append((re.compile(regex, re.IGNORECASE | re.DOTALL), desc))
+            else:
+                self._hidden.append((re.compile(p, re.IGNORECASE | re.DOTALL), 'Hidden instruction vector'))
+        self._obfuscation = [(re.compile(p), d) for p, d in self.OBFUSCATION_PATTERNS]
+        self._base64_re = re.compile(r'(?:base64|b64)[,\s:=]+([A-Za-z0-9+/]{20,}={0,2})', re.IGNORECASE)
+        self._qp_re = re.compile(r'=\?[^\?]+\?Q\?([^\?]+)\?=')
+        self._ascii_re = re.compile(r'[a-zA-Z]')
 
     def analyze(self, parsed_email):
         score = 0
@@ -140,8 +153,8 @@ class PromptDetector:
 
         text_lower = text.lower()
 
-        for pattern in self.SYSTEM_PROMPT_PATTERNS:
-            match = re.search(pattern, text_lower, re.IGNORECASE)
+        for pattern in self._system_prompts:
+            match = pattern.search(text_lower)
             if match:
                 score += 30
                 findings.append({
@@ -150,8 +163,8 @@ class PromptDetector:
                     'detail': f'Wykryto próbę wstrzyknięcia promptu systemowego: "{match.group()[:60]}"'
                 })
 
-        for pattern in self.SENSITIVE_DATA_REQUESTS:
-            match = re.search(pattern, text_lower, re.IGNORECASE)
+        for pattern in self._sensitive:
+            match = pattern.search(text_lower)
             if match:
                 score += 20
                 findings.append({
@@ -169,13 +182,8 @@ class PromptDetector:
         if not html:
             return score, findings
 
-        for pattern in self.HIDDEN_INSTRUCTION_VECTORS:
-            if isinstance(pattern, tuple):
-                regex, desc = pattern
-            else:
-                regex, desc = pattern, 'Hidden instruction vector'
-
-            matches = re.findall(regex, html, re.IGNORECASE | re.DOTALL)
+        for regex, desc in self._hidden:
+            matches = regex.findall(html)
             if matches:
                 score += 25
                 findings.append({
@@ -215,8 +223,7 @@ class PromptDetector:
         findings = []
         content = text + ' ' + html
 
-        base64_pattern = r'(?:base64|b64)[,\s:=]+([A-Za-z0-9+/]{20,}={0,2})'
-        for match in re.finditer(base64_pattern, content, re.IGNORECASE):
+        for match in self._base64_re.finditer(content):
             encoded = match.group(1)
             try:
                 decoded = base64.b64decode(encoded).decode('utf-8', errors='ignore')
@@ -231,8 +238,7 @@ class PromptDetector:
             except:
                 pass
 
-        quoted_printable_pattern = r'=\?[^\?]+\?Q\?([^\?]+)\?='
-        for match in re.finditer(quoted_printable_pattern, content):
+        for match in self._qp_re.finditer(content):
             try:
                 decoded = quopri.decodestring(match.group(1).encode()).decode('utf-8', errors='ignore')
                 if any(kw in decoded.lower() for kw in ['ignore', 'override', 'system', 'prompt']):
@@ -252,11 +258,11 @@ class PromptDetector:
         findings = []
         content = text + ' ' + html
 
-        for pattern, desc in self.OBFUSCATION_PATTERNS:
-            matches = re.findall(pattern, content)
+        for regex, desc in self._obfuscation:
+            matches = regex.findall(content)
             if matches:
                 if 'Cyrillic' in desc:
-                    ascii_chars = re.findall(r'[a-zA-Z]', content)
+                    ascii_chars = self._ascii_re.findall(content)
                     if len(ascii_chars) > 20:
                         score += 15
                         findings.append({

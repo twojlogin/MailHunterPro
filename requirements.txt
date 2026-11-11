@@ -4,7 +4,6 @@ beautifulsoup4>=4.15.0
 requests>=2.34.2
 lxml>=4.9.0
 cryptography>=50.0.2
-phonenumbers>=8.13.0
 
 # Database
 # sqlite3 jest wbudowane w Pythona

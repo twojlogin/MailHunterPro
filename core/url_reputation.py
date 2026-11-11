@@ -6,7 +6,6 @@ import time
 from urllib.parse import urlparse
 import urllib.request
 import urllib.error
-from functools import lru_cache
 
 
 class URLReputation:

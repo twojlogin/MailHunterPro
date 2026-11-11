@@ -94,6 +94,11 @@ class HiddenContentDetector:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self._device = [re.compile(p, re.IGNORECASE) for p in self.DEVICE_ACCESS_PATTERNS]
+        self._malicious_js = [re.compile(p, re.IGNORECASE) for p in self.MALICIOUS_JS_PATTERNS]
+        self._hidden_elements = [re.compile(p, re.IGNORECASE) for p in [pe[0] if isinstance(pe, tuple) else pe for pe in self.HIDDEN_ELEMENTS]]
+        self._hidden_iframes = [re.compile(p, re.IGNORECASE) for p in self.HIDDEN_IFRAME_PATTERNS]
+        self._suspicious_forms = [re.compile(p, re.IGNORECASE) for p in self.SUSPICIOUS_FORM_ACTIONS]
 
     def analyze(self, parsed_email):
         score = 0
@@ -129,8 +134,8 @@ class HiddenContentDetector:
         score = 0
         findings = []
 
-        for pattern in self.DEVICE_ACCESS_PATTERNS:
-            match = re.search(pattern, content, re.IGNORECASE)
+        for pattern in self._device:
+            match = pattern.search(content)
             if match:
                 keyword = match.group()
                 kw_lower = keyword.lower()
@@ -209,7 +214,7 @@ class HiddenContentDetector:
 
             if src and src.startswith('http'):
                 for pattern in self.MALICIOUS_JS_PATTERNS:
-                    if re.search(pattern, src, re.IGNORECASE):
+                    if pattern.search(src):
                         score += 20
                         findings.append({
                             'type': 'MALICIOUS_SCRIPT_SRC',
@@ -218,8 +223,8 @@ class HiddenContentDetector:
                         })
                         break
 
-            for pattern in self.MALICIOUS_JS_PATTERNS:
-                match = re.search(pattern, script_content, re.IGNORECASE)
+            for pattern in self._malicious_js:
+                match = pattern.search(script_content)
                 if match:
                     keyword = match.group()
                     if any(k in keyword.lower() for k in ['fetch', 'sendbeacon', 'xmlhttprequest', 'new image']):
@@ -275,8 +280,8 @@ class HiddenContentDetector:
         if not html:
             return score, findings
 
-        for pattern, desc in self.HIDDEN_ELEMENTS:
-            matches = re.findall(pattern, html, re.IGNORECASE)
+        for pattern, desc in zip(self._hidden_elements, [d for _, d in self.HIDDEN_ELEMENTS]):
+            matches = pattern.findall(html)
             if matches:
                 score += 15
                 findings.append({
@@ -312,8 +317,8 @@ class HiddenContentDetector:
         if not html:
             return score, findings
 
-        for pattern in self.HIDDEN_IFRAME_PATTERNS:
-            matches = re.findall(pattern, html, re.IGNORECASE)
+        for pattern in self._hidden_iframes:
+            matches = pattern.findall(html)
             if matches:
                 score += 25
                 findings.append({
@@ -331,8 +336,8 @@ class HiddenContentDetector:
         if not html:
             return score, findings
 
-        for pattern in self.SUSPICIOUS_FORM_ACTIONS:
-            matches = re.findall(pattern, html, re.IGNORECASE)
+        for pattern in self._suspicious_forms:
+            matches = pattern.findall(html)
             if matches:
                 score += 20
                 findings.append({
