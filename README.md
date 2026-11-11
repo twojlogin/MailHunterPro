@@ -1,3 +1,7 @@
+## Zależności (core)
+- beautifulsoup4, lxml, cryptography, requests, flask
+- phonenumbers usunięte (nieużywane w core)
+
 ## Repository layout
 
 - `core/` — active analysis engine, parsers, detectors, scoring logic and report generation.
